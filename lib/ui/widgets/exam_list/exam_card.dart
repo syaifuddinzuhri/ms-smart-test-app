@@ -73,7 +73,7 @@ class ExamCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(color: isLulus ? Colors.green.shade50 : Colors.red.shade50, borderRadius: BorderRadius.circular(4), border: Border.all(color: isLulus ? Colors.green.shade200 : Colors.red.shade200)),
-      child: Text(exam.resultStatus ?? "", style: TextStyle(color: isLulus ? Colors.green : Colors.red, fontSize: 9, fontWeight: FontWeight.bold)),
+      child: Text(exam.resultStatus?.toUpperCase() ?? "", style: TextStyle(color: isLulus ? Colors.green : Colors.red, fontSize: 9, fontWeight: FontWeight.bold )),
     );
   }
 
@@ -106,6 +106,8 @@ class ExamCard extends StatelessWidget {
   }
 
   Widget _buildActionButton(BuildContext context, bool isCompleted, bool isOngoing) {
+    if(isCompleted) return SizedBox.shrink();
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: SizedBox(
