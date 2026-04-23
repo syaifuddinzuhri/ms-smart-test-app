@@ -4,8 +4,6 @@ import 'package:ms_smart_test/data/models/profile_stats.dart';
 import 'package:ms_smart_test/providers/auth_provider.dart';
 import 'package:ms_smart_test/ui/widgets/skeletons/profile_skeleton.dart';
 import 'package:provider/provider.dart';
-import 'info_column.dart';
-import 'stat_card.dart';
 
 class HomeProfileSection extends StatelessWidget {
   const HomeProfileSection({super.key});
@@ -15,105 +13,247 @@ class HomeProfileSection extends StatelessWidget {
     final authProvider = context.watch<AuthProvider>();
     final profile = authProvider.profileData;
 
-    if (profile == null) {
-      return const ProfileSkeleton();
-    }
+    if (profile == null) return const ProfileSkeleton();
 
     final user = profile.user;
     final stats = profile.stats;
-
     final student = user.student;
 
-    final className = CommonHelper.formatClassroom(
-      student?.classroom.name,
-      student?.classroom.major.name,
-    );
-
-    final gender = CommonHelper.formatGender(student?.gender);
-
-    final birth = CommonHelper.formatBirth(student?.pob, student?.dob);
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildHeader(user.name, student?.nisn),
-          const SizedBox(height: 20),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              InfoColumn(label: "KELAS & JURUSAN", value: className),
-              InfoColumn(label: "JENIS KELAMIN", value: gender),
-              InfoColumn(label: "TEMPAT/TANGGAL LAHIR", value: birth),
+    return Column(
+      children: [
+        // 1. MAIN PROFILE CARD
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Colors.green.shade700, Colors.green.shade500],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.green.withOpacity(0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 10),
+              )
             ],
           ),
-          const SizedBox(height: 20),
-          _buildStatGrid(stats),
-        ],
-      ),
+          child: Stack(
+            children: [
+              // Aksesoris Dekorasi (Lingkaran transparan di background)
+              Positioned(
+                right: -20,
+                top: -20,
+                child: CircleAvatar(
+                  radius: 60,
+                  backgroundColor: Colors.white.withOpacity(0.1),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    _buildTopHeader(user.name, student?.nisn, student?.gender ?? 'male'),
+                    const SizedBox(height: 24),
+                    _buildInfoGrid(student),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // 2. STATS GRID SECTION
+        _buildModernStatGrid(stats),
+      ],
     );
   }
 
-  Widget _buildHeader(String name, String? nisn) {
+  Widget _buildTopHeader(String name, String? nisn, String gender) {
+    String getStudentAvatar(String? gender) {
+      if (gender == 'female') {
+        return 'assets/images/female.png';
+      }
+      return 'assets/images/male.png';
+    }
+
     return Row(
       children: [
-        const CircleAvatar(
-          radius: 30,
-          backgroundColor: Color(0xFFE8F5E9),
-          child: Icon(Icons.person, color: Colors.green, size: 35),
+        Container(
+          padding: const EdgeInsets.all(3),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+          ),
+          child:CircleAvatar(
+            radius: 32,
+            backgroundColor: Colors.grey.shade200,
+            child: ClipOval(
+              child: Image.asset(
+                getStudentAvatar(gender),
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
         ),
-        const SizedBox(width: 15),
+        const SizedBox(width: 16),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(name,
-                  style: const TextStyle(
-                      fontSize: 18, fontWeight: FontWeight.bold)),
-              Text("NISN: ${nisn ?? '-'}",
-                  style: const TextStyle(color: Colors.grey)),
+              const Text(
+                "Selamat Datang,",
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+              Text(
+                name,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  "NISN: ${nisn ?? '-'}",
+                  style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w500),
+                ),
+              ),
             ],
           ),
         ),
-        _buildActiveBadge(),
+        _buildStatusBadge(),
       ],
     );
   }
 
-  Widget _buildActiveBadge() {
+  Widget _buildStatusBadge() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(20)),
-      child: const Row(
+      padding: const EdgeInsets.all(8),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        shape: BoxShape.circle,
+      ),
+      child: const Icon(Icons.verified_user, color: Colors.green, size: 20),
+    );
+  }
+
+  Widget _buildInfoGrid(dynamic student) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          CircleAvatar(radius: 4, backgroundColor: Colors.green),
-          SizedBox(width: 5),
-          Text("Aktif", style: TextStyle(color: Colors.green, fontSize: 12)),
+          _infoItem(Icons.class_outlined, "Kelas", CommonHelper.formatClassroom(student?.classroom?.name, student?.classroom?.major?.code)),
+          _infoItem(Icons.transgender_rounded, "Gender", CommonHelper.formatGender(student?.gender)),
+          _infoItem(Icons.location_on_outlined, "Tempat/Tanggal Lahir", CommonHelper.formatBirth(student?.pob, student?.dob)),
         ],
       ),
     );
   }
 
-  Widget _buildStatGrid(ProfileStats stats) {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: 2.5,
-      children:  [
-        StatCard(title: "BELUM DIKERJAKAN", value: "${stats.examsPending} Ujian", icon: Icons.assignment_late_outlined, bgColor: Color(0xFFFFFDE7), iconColor: Colors.orange),
-        StatCard(title: "SELESAI DIKERJAKAN", value: "${stats.examsPending} Ujian", icon: Icons.assignment_turned_in_outlined, bgColor: Color(0xFFE3F2FD), iconColor: Colors.blue),
-        StatCard(title: "SKOR TERTINGGI", value: "${stats.examsPending} Ujian", icon: Icons.emoji_events_outlined, bgColor: Color(0xFFE8F5E9), iconColor: Colors.teal),
-        StatCard(title: "SKOR RATA-RATA", value: "${stats.examsPending} Ujian", icon: Icons.bar_chart_outlined, bgColor: Color(0xFFF3E5F5), iconColor: Colors.purple),
+  Widget _infoItem(IconData icon, String label, String value) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.white70, size: 20),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(color: Colors.white70, fontSize: 10)),
+        Text(
+          value,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+        ),
       ],
     );
   }
+
+  Widget _buildModernStatGrid(ProfileStats stats) {
+    return GridView.count(
+      crossAxisCount: 2, // 2 kolom
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
+      childAspectRatio: 2.3, // Membuat bentuk menjadi persegi panjang horizontal
+      children: [
+        _statCard("Ujian Tersedia", "${stats.examsPending}", Icons.pending_actions_rounded, Colors.orange),
+        _statCard("Ujian Selesai", "${stats.examsDone}", Icons.task_alt_rounded, Colors.blue),
+        _statCard("Skor Tertinggi", "${stats.highestScore}", Icons.auto_awesome_rounded, Colors.teal),
+        _statCard("Skor Rata-rata", "${stats.averageScore}", Icons.insights_rounded, Colors.purple),
+      ],
+    );
+  }
+
+  Widget _statCard(String title, String value, IconData icon, Color color) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade100),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.03),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          // Icon di sisi kiri dengan background transparan berwarna
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          // Text di sisi kanan
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black87,
+                  ),
+                ),
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey.shade600,
+                      fontWeight: FontWeight.w500
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
 }

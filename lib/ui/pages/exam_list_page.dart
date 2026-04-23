@@ -21,7 +21,7 @@ class ExamListPage extends StatelessWidget {
         appBar: AppBar(
           title: const Text("DAFTAR UJIAN", style: TextStyle(fontWeight: FontWeight.bold)),
           centerTitle: true,
-          bottom: const TabBar(
+          bottom: TabBar(
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white54,
             indicatorColor: Colors.green,

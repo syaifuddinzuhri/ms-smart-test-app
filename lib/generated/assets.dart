@@ -11,7 +11,9 @@ class Assets {
 class $AssetsImagesGen {
   const $AssetsImagesGen();
 
+  final AssetGenImage female = const AssetGenImage('assets/images/female.png');
   final AssetGenImage logo = const AssetGenImage('assets/images/logo.png');
+  final AssetGenImage male = const AssetGenImage('assets/images/male.png');
 }
 
 class AssetGenImage {

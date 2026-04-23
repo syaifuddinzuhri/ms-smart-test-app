@@ -42,17 +42,83 @@ class HomePage extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(
-        title: const Text(
-          "MS SMART TEST",
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => _handleLogout(context),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(60),
+        child: AppBar(
+          backgroundColor: Colors.white,
+          elevation: 0,
+          centerTitle: false,
+          automaticallyImplyLeading: false,
+          bottom: PreferredSize(
+            preferredSize: const Size.fromHeight(1),
+            child: Container(color: Colors.grey.shade100, height: 1),
           ),
-        ],
+          title: Row(
+            children: [
+              // Logo Mini
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  height: 24,
+                  color: Colors.green.shade700,
+                  colorBlendMode: BlendMode.srcIn,
+                  errorBuilder: (context, error, stackTrace) =>
+                  const Icon(Icons.school_rounded, color: Colors.green, size: 20),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Tipografi Judul
+              RichText(
+                text: TextSpan(
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.5,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: "MS ",
+                      style: TextStyle(color: Colors.black87),
+                    ),
+                    TextSpan(
+                      text: "SMART TEST",
+                      style: TextStyle(color: Colors.green.shade500),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            // Tombol Logout dengan Circle Background
+            Padding(
+              padding: const EdgeInsets.only(right: 16),
+              child: Center(
+                child: Material(
+                  color: Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () => _handleLogout(context),
+                    child: Container(
+                      padding: const EdgeInsets.all(10),
+                      child: Icon(
+                        Icons.logout_rounded,
+                        color: Colors.red.shade600,
+                        size: 20,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -95,7 +161,7 @@ class HomePage extends StatelessWidget {
           );
         },
         child: const Text(
-          "LIHAT DAFTAR UJIAN AKTIF",
+          "LIHAT DAFTAR UJIAN",
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
       ),
