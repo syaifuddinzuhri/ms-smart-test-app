@@ -14,38 +14,146 @@ class ExamInfoBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Menghitung progress pengerjaan (0.0 sampai 1.0)
+    double progress = (currentIndex + 1) / totalQuestions;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), offset: const Offset(0, 2), blurRadius: 5)
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            offset: const Offset(0, 4),
+            blurRadius: 10,
+          ),
         ],
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
         children: [
-          Row(
-            children: [
-              const Text("SOAL ", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 14)),
-              Text("${currentIndex + 1}", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 18)),
-              Text(" / $totalQuestions", style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey, fontSize: 14)),
-            ],
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic, // WAJIB
+              children: [
+                // --- SISI KIRI: INDIKATOR NOMOR ---
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.tag_rounded,
+                          size: 16, color: Colors.green.shade700),
+                    ),
+                    const SizedBox(width: 10),
+                    RichText(
+                      text: TextSpan(
+                        style: const TextStyle(color: Colors.black87),
+                        children: [
+                          const TextSpan(
+                            text: "SOAL ",
+                            style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                color: Colors.grey
+                            ),
+                          ),
+                          TextSpan(
+                            text: "${currentIndex + 1}",
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.green.shade700
+                            ),
+                          ),
+                          TextSpan(
+                            text: " / $totalQuestions",
+                            style: const TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.grey
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                // --- SISI KANAN: BADGE TIPE SOAL ---
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [Colors.blue.shade400, Colors.blue.shade700],
+                    ),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.blue.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 3),
+                      )
+                    ],
+                  ),
+                  child: Text(
+                    _formatTypeName(questionType),
+                    style: const TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      letterSpacing: 1,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.blue.shade100),
-            ),
-            child: Text(
-              questionType.toUpperCase(),
-              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.blue),
-            ),
+
+          // --- PROGRESS BAR HALUS ---
+          Stack(
+            children: [
+              Container(
+                height: 4,
+                width: double.infinity,
+                color: Colors.grey.shade100,
+              ),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeInOut,
+                height: 4,
+                width: MediaQuery.of(context).size.width * progress,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Colors.green.shade400, Colors.green.shade700],
+                  ),
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(4),
+                    bottomRight: Radius.circular(4),
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
+  }
+
+  // Helper untuk merapikan teks tipe soal
+  String _formatTypeName(String type) {
+    switch (type.toLowerCase()) {
+      case 'single': return 'PILIHAN GANDA';
+      case 'multiple': return 'JAWABAN JAMAK';
+      case 'truefalse': return 'BENAR / SALAH';
+      case 'shortanswer': return 'ISIAN SINGKAT';
+      case 'essay': return 'ESSAY / URAIAN';
+      default: return type.toUpperCase();
+    }
   }
 }

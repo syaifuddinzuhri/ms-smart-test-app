@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:ms_smart_test/ui/pages/home_page.dart';
 import 'login_page.dart';
 
 class ViolationPage extends StatelessWidget {
@@ -73,12 +74,12 @@ class ViolationPage extends StatelessWidget {
                   // Logic redirect ke login
                   Navigator.pushAndRemoveUntil(
                     context,
-                    MaterialPageRoute(builder: (context) => const LoginPage()),
+                    MaterialPageRoute(builder: (context) => const HomePage()),
                         (route) => false,
                   );
                 },
                 child: const Text(
-                  "KEMBALI KE LOGIN",
+                  "KEMBALI KE HALAMAN UTAMA",
                   style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),

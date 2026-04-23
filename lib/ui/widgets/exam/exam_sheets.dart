@@ -11,76 +11,184 @@ class ExamSheets {
     required int currentIndex,
     required Function(int) onQuestionTap,
   }) {
+    // Hitung progress untuk header
+    int dijawab = questions.where((q) => _checkIsAnswered(q)).length;
+    double progressPercent = (dijawab / questions.length) * 100;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      backgroundColor: Colors.transparent,
       builder: (context) {
         return Container(
-          padding: const EdgeInsets.all(20),
-          constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.7),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.75,
+          ),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Container(width: 40, height: 5, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(10))),
-              const SizedBox(height: 20),
-              const Text("Navigasi Soal", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 20),
+              // --- HANDLE BAR ---
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+
+              // --- HEADER NAVIGASI ---
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Navigasi Soal",
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                      ),
+                      Text(
+                        "Progres Pengerjaan: ${progressPercent.toStringAsFixed(0)}%",
+                        style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.green.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      "$dijawab/${questions.length} Selesai",
+                      style: const TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 25),
+
+              // --- GRID SOAL ---
               Expanded(
                 child: GridView.builder(
+                  padding: const EdgeInsets.only(bottom: 20),
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 6,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
                   ),
                   itemCount: questions.length,
                   itemBuilder: (context, index) {
                     final q = questions[index];
                     bool isAnswered = _checkIsAnswered(q);
+                    bool isCurrent = currentIndex == index;
+                    bool isFlagged = q.isFlagged;
 
-                    Color bgColor = Colors.white;
-                    Color textColor = Colors.black;
-                    if (q.isFlagged) {
-                      bgColor = Colors.orange;
+                    // Logika Warna Modern
+                    Color boxColor = Colors.grey.shade100;
+                    Color textColor = Colors.black87;
+                    Color borderColor = Colors.transparent;
+
+                    if (isFlagged) {
+                      boxColor = Colors.orange;
                       textColor = Colors.white;
                     } else if (isAnswered) {
-                      bgColor = Colors.green;
+                      boxColor = Colors.green;
                       textColor = Colors.white;
                     }
 
-                    bool isCurrent = currentIndex == index;
+                    if (isCurrent) {
+                      borderColor = Colors.blue.shade700;
+                    }
 
                     return InkWell(
                       onTap: () {
                         onQuestionTap(index);
                         Navigator.pop(context);
                       },
-                      child: Container(
+                      borderRadius: BorderRadius.circular(15),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 200),
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
-                          color: bgColor,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: isCurrent ? Colors.blue : Colors.grey.shade300, width: isCurrent ? 3 : 1),
+                          color: boxColor,
+                          borderRadius: BorderRadius.circular(15),
+                          border: isCurrent
+                              ? Border.all(color: borderColor, width: 3)
+                              : Border.all(color: Colors.grey.shade200, width: 1),
+                          boxShadow: isCurrent
+                              ? [BoxShadow(color: Colors.blue.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))]
+                              : (isAnswered || isFlagged)
+                              ? [BoxShadow(color: boxColor.withOpacity(0.2), blurRadius: 5, offset: const Offset(0, 3))]
+                              : [],
                         ),
-                        child: Text("${index + 1}", style: TextStyle(fontWeight: FontWeight.bold, color: textColor)),
+                        child: Text(
+                          "${index + 1}",
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: textColor,
+                          ),
+                        ),
                       ),
                     );
                   },
                 ),
               ),
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildLegend(Colors.green, "Dijawab"),
-                  _buildLegend(Colors.orange, "Ragu"),
-                  _buildLegend(Colors.white, "Belum"),
-                ],
+
+              // --- LEGEND SECTION ---
+              Container(
+                padding: const EdgeInsets.only(top: 20, bottom: 10),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: Colors.grey.shade100)),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _buildModernLegend(Colors.green, "Dijawab"),
+                    _buildModernLegend(Colors.orange, "Ragu"),
+                    _buildModernLegend(Colors.grey.shade200, "Belum", isTextDark: true),
+                  ],
+                ),
               )
             ],
           ),
         );
       },
+    );
+  }
+
+  static Widget _buildModernLegend(Color color, String text, {bool isTextDark = false}) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: Colors.grey.shade700,
+          ),
+        ),
+      ],
     );
   }
 

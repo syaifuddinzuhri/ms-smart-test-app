@@ -179,68 +179,73 @@ class _ExamPageState extends State<ExamPage> with WidgetsBindingObserver {
           remainingTime: _formatTime(_secondsRemaining),
           isTimeCritical: _secondsRemaining < 300,
         ),
-        body: Column(
-          children: [
-            ExamInfoBar(
-              currentIndex: _currentIndex,
-              totalQuestions: _questions.length,
-              questionType: question.type.name,
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(question.text, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 25),
-                    ExamQuestionRenderer(
-                      question: question,
-                      textController: _textController,
-                      onUpdate: (fn) => setState(fn),
-                    ),
-                  ],
+        body: GestureDetector(
+          onTap: (){
+            FocusScope.of(context).unfocus();
+          },
+          child: Column(
+            children: [
+              ExamInfoBar(
+                currentIndex: _currentIndex,
+                totalQuestions: _questions.length,
+                questionType: question.type.name,
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Text(question.text, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      // const SizedBox(height: 25),
+                      ExamQuestionRenderer(
+                        question: question,
+                        textController: _textController,
+                        onUpdate: (fn) => setState(fn),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            // GUNAKAN KOMPONEN BARU
-            ExamBottomNavbar(
-              isFlagged: question.isFlagged,
-              currentIndex: _currentIndex,
-              totalQuestions: _questions.length,
-              onFlagChanged: (v) => setState(() => question.isFlagged = v!),
-              onPrev: _currentIndex == 0 ? null : () {
-                setState(() => _currentIndex--);
-                _loadTextAnswer();
-              },
-              onNext: _currentIndex == _questions.length - 1 ? null : () {
-                setState(() => _currentIndex++);
-                _loadTextAnswer();
-              },
-              onNavTap: () => ExamSheets.showNavigation(
-                context: context,
-                questions: _questions,
+              // GUNAKAN KOMPONEN BARU
+              ExamBottomNavbar(
+                isFlagged: question.isFlagged,
                 currentIndex: _currentIndex,
-                onQuestionTap: (index) {
-                  setState(() => _currentIndex = index);
+                totalQuestions: _questions.length,
+                onFlagChanged: (v) => setState(() => question.isFlagged = v!),
+                onPrev: _currentIndex == 0 ? null : () {
+                  setState(() => _currentIndex--);
                   _loadTextAnswer();
                 },
-              ),
-              onSubmitTap: () => ExamSheets.showConfirmSubmit(
-                context: context,
-                questions: _questions,
-                onConfirm: () async {
-                  await SecurityService.stopSecureMode();
-                  if (!mounted) return;
+                onNext: _currentIndex == _questions.length - 1 ? null : () {
+                  setState(() => _currentIndex++);
+                  _loadTextAnswer();
+                },
+                onNavTap: () => ExamSheets.showNavigation(
+                  context: context,
+                  questions: _questions,
+                  currentIndex: _currentIndex,
+                  onQuestionTap: (index) {
+                    setState(() => _currentIndex = index);
+                    _loadTextAnswer();
+                  },
+                ),
+                onSubmitTap: () => ExamSheets.showConfirmSubmit(
+                  context: context,
+                  questions: _questions,
+                  onConfirm: () async {
+                    await SecurityService.stopSecureMode();
+                    if (!mounted) return;
 
                     Navigator.pop(context); // Tutup Sheet
                     Navigator.pop(context); // Keluar Ujian
 
-                },
+                  },
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        )
       ),
     );
   }
