@@ -24,7 +24,7 @@ class _ExamPageState extends State<ExamPage> with WidgetsBindingObserver {
   int _currentIndex = 0;
   bool _isSecureActive = false;
   late Timer _timer;
-  int _secondsRemaining = 10; // Contoh: 60 menit (3600 detik)
+  int _secondsRemaining = 3600; // Contoh: 60 menit (3600 detik)
   bool _isViolationDetected = false; // Flag untuk mencegah alert ganda
 
   final TextEditingController _textController = TextEditingController();
