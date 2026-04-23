@@ -15,7 +15,7 @@ class DioClient {
         baseUrl: dotenv.env['API_BASE_URL'] ?? '',
         connectTimeout: const Duration(seconds: 10),
         receiveTimeout: const Duration(seconds: 10),
-        contentType: 'application/json',
+        contentType: 'application/json'
       ),
     );
 

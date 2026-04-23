@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:flutter/cupertino.dart';
+
 class CommonHelper {
   /// Format gender dari API
   static String formatGender(String? gender) {
@@ -31,8 +35,18 @@ class CommonHelper {
       final d = DateTime.parse(date);
 
       const months = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-        'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'Mei',
+        'Jun',
+        'Jul',
+        'Agu',
+        'Sep',
+        'Okt',
+        'Nov',
+        'Des',
       ];
 
       return "${d.day.toString().padLeft(2, '0')} ${months[d.month - 1]} ${d.year}";
@@ -46,5 +60,23 @@ class CommonHelper {
     if (className == null && majorName == null) return '-';
 
     return "${className ?? ''}${className != null && majorName != null ? ' - ' : ''}${majorName ?? ''}";
+  }
+
+  static void printPretty(dynamic data) {
+    try {
+      final encoder = const JsonEncoder.withIndent('  ');
+      final pretty = encoder.convert(data);
+
+      for (var i = 0; i < pretty.length; i += 800) {
+        debugPrint(
+          pretty.substring(
+            i,
+            i + 800 > pretty.length ? pretty.length : i + 800,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint(data.toString());
+    }
   }
 }
