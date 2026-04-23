@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:ms_smart_test/core/common_helper.dart';
+import 'package:ms_smart_test/data/models/profile_stats.dart';
+import 'package:ms_smart_test/providers/auth_provider.dart';
+import 'package:ms_smart_test/ui/widgets/skeletons/profile_skeleton.dart';
+import 'package:provider/provider.dart';
 import 'info_column.dart';
 import 'stat_card.dart';
 
@@ -7,6 +12,27 @@ class HomeProfileSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final profile = authProvider.profileData;
+
+    if (profile == null) {
+      return const ProfileSkeleton();
+    }
+
+    final user = profile.user;
+    final stats = profile.stats;
+
+    final student = user.student;
+
+    final className = CommonHelper.formatClassroom(
+      student?.classroom.name,
+      student?.classroom.major.name,
+    );
+
+    final gender = CommonHelper.formatGender(student?.gender);
+
+    final birth = CommonHelper.formatBirth(student?.pob, student?.dob);
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -17,24 +43,24 @@ class HomeProfileSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildHeader(),
+          _buildHeader(user.name, student?.nisn),
           const SizedBox(height: 20),
-          const Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              InfoColumn(label: "KELAS & JURUSAN", value: "XII - Teknik Informatika"),
-              InfoColumn(label: "JENIS KELAMIN", value: "Laki-laki"),
-              InfoColumn(label: "TEMPAT/TANGGAL LAHIR", value: "-"),
+              InfoColumn(label: "KELAS & JURUSAN", value: className),
+              InfoColumn(label: "JENIS KELAMIN", value: gender),
+              InfoColumn(label: "TEMPAT/TANGGAL LAHIR", value: birth),
             ],
           ),
           const SizedBox(height: 20),
-          _buildStatGrid(),
+          _buildStatGrid(stats),
         ],
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(String name, String? nisn) {
     return Row(
       children: [
         const CircleAvatar(
@@ -43,12 +69,15 @@ class HomeProfileSection extends StatelessWidget {
           child: Icon(Icons.person, color: Colors.green, size: 35),
         ),
         const SizedBox(width: 15),
-        const Expanded(
+        Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Tester", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text("NISN: 1234567898", style: TextStyle(color: Colors.grey)),
+              Text(name,
+                  style: const TextStyle(
+                      fontSize: 18, fontWeight: FontWeight.bold)),
+              Text("NISN: ${nisn ?? '-'}",
+                  style: const TextStyle(color: Colors.grey)),
             ],
           ),
         ),
@@ -71,7 +100,7 @@ class HomeProfileSection extends StatelessWidget {
     );
   }
 
-  Widget _buildStatGrid() {
+  Widget _buildStatGrid(ProfileStats stats) {
     return GridView.count(
       crossAxisCount: 2,
       shrinkWrap: true,
@@ -79,11 +108,11 @@ class HomeProfileSection extends StatelessWidget {
       mainAxisSpacing: 10,
       crossAxisSpacing: 10,
       childAspectRatio: 2.5,
-      children: const [
-        StatCard(title: "BELUM DIKERJAKAN", value: "0 Ujian", icon: Icons.assignment_late_outlined, bgColor: Color(0xFFFFFDE7), iconColor: Colors.orange),
-        StatCard(title: "SELESAI DIKERJAKAN", value: "1 Ujian", icon: Icons.assignment_turned_in_outlined, bgColor: Color(0xFFE3F2FD), iconColor: Colors.blue),
-        StatCard(title: "SKOR TERTINGGI", value: "0.0", icon: Icons.emoji_events_outlined, bgColor: Color(0xFFE8F5E9), iconColor: Colors.teal),
-        StatCard(title: "SKOR RATA-RATA", value: "0.0", icon: Icons.bar_chart_outlined, bgColor: Color(0xFFF3E5F5), iconColor: Colors.purple),
+      children:  [
+        StatCard(title: "BELUM DIKERJAKAN", value: "${stats.examsPending} Ujian", icon: Icons.assignment_late_outlined, bgColor: Color(0xFFFFFDE7), iconColor: Colors.orange),
+        StatCard(title: "SELESAI DIKERJAKAN", value: "${stats.examsPending} Ujian", icon: Icons.assignment_turned_in_outlined, bgColor: Color(0xFFE3F2FD), iconColor: Colors.blue),
+        StatCard(title: "SKOR TERTINGGI", value: "${stats.examsPending} Ujian", icon: Icons.emoji_events_outlined, bgColor: Color(0xFFE8F5E9), iconColor: Colors.teal),
+        StatCard(title: "SKOR RATA-RATA", value: "${stats.examsPending} Ujian", icon: Icons.bar_chart_outlined, bgColor: Color(0xFFF3E5F5), iconColor: Colors.purple),
       ],
     );
   }

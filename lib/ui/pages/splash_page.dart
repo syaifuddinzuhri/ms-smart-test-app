@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:ms_smart_test/providers/auth_provider.dart';
+import 'package:ms_smart_test/ui/pages/home_page.dart';
+import 'package:provider/provider.dart';
 import 'login_page.dart';
 
 class SplashPage extends StatefulWidget {
@@ -13,15 +16,31 @@ class _SplashPageState extends State<SplashPage> {
   @override
   void initState() {
     super.initState();
-    // Berpindah ke halaman login setelah 3 detik
-    Timer(const Duration(seconds: 3), () {
-      if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const LoginPage()),
-        );
-      }
-    });
+    _init();
+  }
+
+  Future<void> _init() async {
+    await Future.delayed(const Duration(seconds: 2)); // biar splash tetap kelihatan
+
+    if (!mounted) return;
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
+    bool isAuth = await authProvider.checkAuth();
+
+    if (!mounted) return;
+
+    if (isAuth) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const HomePage()),
+      );
+    } else {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+      );
+    }
   }
 
   @override
