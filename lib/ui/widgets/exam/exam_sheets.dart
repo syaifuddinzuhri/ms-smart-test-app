@@ -7,7 +7,7 @@ class ExamSheets {
   // --- BOTTOM SHEET NAVIGASI ---
   static void showNavigation({
     required BuildContext context,
-    required List<Question> questions,
+    required List<QuestionModel> questions,
     required int currentIndex,
     required Function(int) onQuestionTap,
   }) {
@@ -195,7 +195,7 @@ class ExamSheets {
   // --- BOTTOM SHEET KONFIRMASI SUBMIT ---
   static void showConfirmSubmit({
     required BuildContext context,
-    required List<Question> questions,
+    required List<QuestionModel> questions,
     required VoidCallback onConfirm,
   }) {
     int totalSoal = questions.length;
@@ -388,10 +388,25 @@ class ExamSheets {
   }
 
   // --- PRIVATE HELPERS ---
-  static bool _checkIsAnswered(Question q) {
-    if (q.type == QuestionType.single || q.type == QuestionType.trueFalse) return q.selectedAnswer != null;
-    if (q.type == QuestionType.multiple) return q.selectedAnswers.isNotEmpty;
-    return q.textAnswer.trim().isNotEmpty;
+  static bool _checkIsAnswered(QuestionModel q) {
+    switch (q.type) {
+    // Untuk pilihan ganda tunggal dan benar/salah
+      case QuestionType.single_choice:
+      case QuestionType.true_false:
+        return q.selectedAnswerIndex != null;
+
+    // Untuk pilihan ganda jamak (Checkbox)
+      case QuestionType.multiple_choice:
+        return q.selectedAnswerIndices.isNotEmpty;
+
+    // Untuk isian singkat dan essay
+      case QuestionType.short_answer:
+      case QuestionType.essay:
+        return q.textAnswer.trim().isNotEmpty;
+
+      default:
+        return false;
+    }
   }
 
   static Widget _buildLegend(Color color, String text) {

@@ -1,17 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_widget_from_html/flutter_widget_from_html.dart';
+import 'package:ms_smart_test/providers/exam_provider.dart';
+import 'package:provider/provider.dart';
 import '../../../data/models/question_model.dart';
 
 class ExamQuestionRenderer extends StatelessWidget {
-  final Question question;
+  final QuestionModel question;
   final TextEditingController textController;
   final Function(VoidCallback) onUpdate;
+  final double fontSizeMultiplier;
 
   const ExamQuestionRenderer({
     super.key,
     required this.question,
     required this.textController,
     required this.onUpdate,
+    required this.fontSizeMultiplier,
   });
 
   @override
@@ -20,17 +25,19 @@ class ExamQuestionRenderer extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         // --- TEXT SOAL (SUPPORT HTML) ---
-        Container(
-          width: double.infinity,
-          child: HtmlWidget(
-            question.text,
-            textStyle: const TextStyle(
-              fontSize: 16,
-              height: 1.5,
-              color: Colors.black87,
-            ),
-          ),
-        ),
+        // Container(
+        //   width: double.infinity,
+        //   child: HtmlWidget(
+        //     question.text,
+        //     renderMode: RenderMode.column,
+        //     textStyle: TextStyle(
+        //       fontSize: 16 * fontSizeMultiplier,
+        //       height: 1.5,
+        //       color: Colors.black87,
+        //     ),
+        //   ),
+        // ),
+        _buildHtmlContent(question.text, 16),
         const SizedBox(height: 25),
 
         // --- RENDER JAWABAN BERDASARKAN TIPE ---
@@ -39,43 +46,103 @@ class ExamQuestionRenderer extends StatelessWidget {
     );
   }
 
+  Widget _buildHtmlContent(String htmlData, double baseFontSize) {
+    return HtmlWidget(
+      htmlData,
+      renderMode: RenderMode.column,
+      textStyle: TextStyle(
+        fontSize: baseFontSize * fontSizeMultiplier,
+        height: 1.5,
+        color: Colors.black87,
+      ),
+      customWidgetBuilder: (element) {
+        if (element.classes.contains('math')) {
+          String texCode = element.text.replaceAll(r'$$', '').trim();
+
+          // --- SOLUSI OVERFLOW: Bungkus dengan ScrollView ---
+          return Container(
+            width: double.infinity,
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.withOpacity(0.03),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal, // Memungkinkan geser kanan-kiri
+              physics: const BouncingScrollPhysics(),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 15,
+                ),
+                child: Math.tex(
+                  texCode,
+                  textStyle: TextStyle(
+                    fontSize: (baseFontSize + 2) * fontSizeMultiplier,
+                  ),
+                  onErrorFallback: (err) => Text(
+                    element.text,
+                    style: const TextStyle(color: Colors.red, fontSize: 10),
+                  ),
+                ),
+              ),
+            ),
+          );
+        }
+        return null;
+      },
+    );
+  }
+
   Widget _buildAnswerSection(BuildContext context) {
     switch (question.type) {
-      case QuestionType.single:
-      case QuestionType.trueFalse:
+      case QuestionType.single_choice:
+      case QuestionType.true_false:
         return Column(
           children: question.options!.asMap().entries.map((entry) {
             return _ModernOptionCard(
+              fontSizeMultiplier: fontSizeMultiplier,
               label: String.fromCharCode(65 + entry.key),
-              text: entry.value,
-              isSelected: question.selectedAnswer == entry.key,
+              text: entry.value.text,
+              isSelected: question.selectedAnswerIndex == entry.key,
+              onTap: () =>
+                  onUpdate(() => question.selectedAnswerIndex = entry.key),
               isMultiple: false,
-              onTap: () => onUpdate(() => question.selectedAnswer = entry.key),
+              htmlRenderer: (data) => _buildHtmlContent(data, 14),
             );
           }).toList(),
         );
 
-      case QuestionType.multiple:
+      case QuestionType.multiple_choice:
         return Column(
-          children: question.options!.asMap().entries.map((entry) {
-            bool isSelected = question.selectedAnswers.contains(entry.key);
+          children: question.options.asMap().entries.map((entry) {
+            final option = entry.value; // Ini adalah OptionModel
+            final index = entry.key;
+
+            // Cek apakah index ini ada dalam daftar jawaban terpilih
+            bool isSelected = question.selectedAnswerIndices.contains(index);
+
             return _ModernOptionCard(
-              label: String.fromCharCode(65 + entry.key),
-              text: entry.value,
+              // Pakai label asli dari API (A, B, C, D) bukan generate manual
+              fontSizeMultiplier: fontSizeMultiplier,
+              label: option.label,
+              text: option.text, // Ini mendukung HTML
               isSelected: isSelected,
               isMultiple: true,
+              htmlRenderer: (data) => _buildHtmlContent(data, 14),
               onTap: () => onUpdate(() {
                 if (isSelected) {
-                  question.selectedAnswers.remove(entry.key);
+                  question.selectedAnswerIndices.remove(index);
                 } else {
-                  question.selectedAnswers.add(entry.key);
+                  question.selectedAnswerIndices.add(index);
                 }
               }),
             );
           }).toList(),
         );
 
-      default: // ShortAnswer & Essay
+      case QuestionType.short_answer:
+      case QuestionType.essay:
         return Column(
           children: [
             TextField(
@@ -83,26 +150,29 @@ class ExamQuestionRenderer extends StatelessWidget {
               enableInteractiveSelection: false,
               contextMenuBuilder: (context, _) => const SizedBox.shrink(),
 
-              // --- TAMBAHKAN INI UNTUK MENUTUP KEYBOARD SAAT KLIK LUAR ---
+              // Menutup keyboard saat klik di luar area input
               onTapOutside: (event) {
                 FocusScope.of(context).unfocus();
               },
 
-              // --- KONFIGURASI TOMBOL KEYBOARD ---
+              // Konfigurasi tombol "Enter" di keyboard
               textInputAction: question.type == QuestionType.essay
-                  ? TextInputAction.newline // Enter untuk baris baru di Essay
-                  : TextInputAction.done,    // Tombol "Centang/Selesai" untuk Isian Singkat
+                  ? TextInputAction.newline
+                  : TextInputAction.done,
 
               onSubmitted: (value) {
-                FocusScope.of(context).unfocus(); // Tutup keyboard saat tekan "Done"
+                FocusScope.of(context).unfocus();
               },
-              // ----------------------------------------------------------
 
+              // Tinggi kotak input: Essay lebih besar (5 baris), Short Answer (2 baris)
               maxLines: question.type == QuestionType.essay ? 5 : 2,
-              style: const TextStyle(fontSize: 15),
+              style: TextStyle(fontSize: 15 * fontSizeMultiplier),
               decoration: InputDecoration(
                 hintText: "Tuliskan jawaban Anda di sini...",
-                hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+                hintStyle: TextStyle(
+                  color: Colors.grey.shade400,
+                  fontSize: 14 * fontSizeMultiplier,
+                ),
                 filled: true,
                 fillColor: Colors.white,
                 contentPadding: const EdgeInsets.all(20),
@@ -117,6 +187,7 @@ class ExamQuestionRenderer extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
+            // Tombol simpan untuk memindahkan teks dari Controller ke Model
             _buildSaveButton(context),
           ],
         );
@@ -137,19 +208,19 @@ class ExamQuestionRenderer extends StatelessWidget {
             color: Colors.green.withOpacity(0.3),
             blurRadius: 10,
             offset: const Offset(0, 5),
-          )
+          ),
         ],
       ),
       child: ElevatedButton.icon(
         onPressed: () {
+          // Update state lokal
           onUpdate(() => question.textAnswer = textController.text);
+
+          // Langsung tembak API (tanpa nunggu pindah soal)
+          context.read<ExamProvider>().syncAnswer(question);
+
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: const Text("Jawaban berhasil disimpan!"),
-              behavior: SnackBarBehavior.floating,
-              backgroundColor: Colors.green.shade800,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ),
+            const SnackBar(content: Text("Jawaban disimpan ke server")),
           );
         },
         icon: const Icon(Icons.check_circle_outline, color: Colors.white),
@@ -174,6 +245,8 @@ class _ModernOptionCard extends StatelessWidget {
   final bool isSelected;
   final bool isMultiple;
   final VoidCallback onTap;
+  final double fontSizeMultiplier;
+  final Widget Function(String) htmlRenderer;
 
   const _ModernOptionCard({
     required this.label,
@@ -181,6 +254,8 @@ class _ModernOptionCard extends StatelessWidget {
     required this.isSelected,
     required this.isMultiple,
     required this.onTap,
+    required this.fontSizeMultiplier,
+    required this.htmlRenderer,
   });
 
   @override
@@ -197,7 +272,13 @@ class _ModernOptionCard extends StatelessWidget {
             width: isSelected ? 2 : 1,
           ),
           boxShadow: isSelected
-              ? [BoxShadow(color: Colors.green.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, 4))]
+              ? [
+                  BoxShadow(
+                    color: Colors.green.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ]
               : [],
         ),
         child: InkWell(
@@ -230,16 +311,18 @@ class _ModernOptionCard extends StatelessWidget {
                 ),
                 const SizedBox(width: 15),
                 // Text Opsi (SUPPORT HTML)
-                Expanded(
-                  child: HtmlWidget(
-                    text,
-                    textStyle: TextStyle(
-                      fontSize: 15,
-                      color: isSelected ? Colors.green.shade900 : Colors.black87,
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                    ),
-                  ),
-                ),
+                Expanded(child: htmlRenderer(text)),
+                // Expanded(
+                //   child: HtmlWidget(
+                //     text,
+                //     renderMode: RenderMode.column,
+                //     textStyle: TextStyle(
+                //       fontSize: 15 * fontSizeMultiplier,
+                //       color: isSelected ? Colors.green.shade900 : Colors.black87,
+                //       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                //     ),
+                //   ),
+                // ),
               ],
             ),
           ),

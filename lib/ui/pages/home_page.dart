@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ms_smart_test/data/common_enums.dart';
 import 'package:ms_smart_test/providers/auth_provider.dart';
+import 'package:ms_smart_test/providers/exam_provider.dart';
 import 'package:ms_smart_test/ui/pages/login_page.dart';
 import 'package:ms_smart_test/ui/widgets/AlertBottomSheet.dart';
 import 'package:provider/provider.dart';
@@ -8,8 +9,28 @@ import 'exam_list_page.dart';
 import '../widgets/home/profile_card.dart';
 import '../widgets/home/rules_card.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+
+  @override
+  void initState() {
+    super.initState();
+    _pauseOngoingSessions();
+  }
+
+  void _pauseOngoingSessions() {
+    // Gunakan addPostFrameCallback agar dijalankan setelah frame pertama selesai
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ExamProvider>().pauseActiveSessions();
+      context.read<ExamProvider>().fetchExams('active');
+    });
+  }
 
   void _handleLogout(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -39,6 +60,7 @@ class HomePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final authProvider = context.read<AuthProvider>();
+    final examProvider = context.read<ExamProvider>();
 
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
@@ -123,6 +145,7 @@ class HomePage extends StatelessWidget {
       body: RefreshIndicator(
         onRefresh: () async {
           await authProvider.getMe();
+          await examProvider.pauseActiveSessions();
         },
         child: SingleChildScrollView(
           physics: AlwaysScrollableScrollPhysics(),

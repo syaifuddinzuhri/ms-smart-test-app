@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:ms_smart_test/providers/exam_provider.dart';
+import 'package:provider/provider.dart';
 
 class ExamAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String title;
@@ -78,6 +80,21 @@ class ExamAppBar extends StatelessWidget implements PreferredSizeWidget {
                   ],
                 ),
               ),
+
+              // Di dalam Row AppBar
+              if (context.watch<ExamProvider>().isSyncing)
+                const Padding(
+                  padding: EdgeInsets.only(right: 10),
+                  child: SizedBox(
+                    width: 15, height: 15,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white70),
+                  ),
+                )
+              else
+                const Padding(
+                  padding: EdgeInsets.only(right: 10),
+                  child: Icon(Icons.cloud_done_rounded, size: 18, color: Colors.white70),
+                ),
 
               // --- SISI KANAN: TIMER PILL ---
               Container(

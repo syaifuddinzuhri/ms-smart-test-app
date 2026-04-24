@@ -1,9 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:ms_smart_test/data/models/exam_model.dart';
+import 'package:ms_smart_test/providers/exam_provider.dart';
 import 'package:ms_smart_test/ui/pages/home_page.dart';
+import 'package:provider/provider.dart';
 import 'login_page.dart';
 
-class ViolationPage extends StatelessWidget {
-  const ViolationPage({super.key});
+class ViolationPage extends StatefulWidget {
+  final String examId;
+
+  const ViolationPage({
+    super.key,
+    required this.examId,
+  });
+
+  @override
+  State<ViolationPage> createState() => _ViolationPageState();
+}
+
+class _ViolationPageState extends State<ViolationPage> {
+
+  @override
+  void initState() {
+    super.initState();
+    _pauseSession(); //auto jalan saat halaman dibuka
+  }
+
+  Future<void> _pauseSession() async {
+    final examProvider = context.read<ExamProvider>();
+
+    try {
+      await examProvider.pauseExamSession(widget.examId);
+    } catch (e) {
+      debugPrint("Pause error: $e");
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

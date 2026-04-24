@@ -303,13 +303,13 @@ class ExamCard extends StatelessWidget {
             children: [
               Icon(
                 Icons.info_outline,
-                size: 14,
+                size: 20,
                 color: themeColor.withOpacity(0.7),
               ),
               const SizedBox(width: 6),
               const Expanded(
                 child: Text(
-                  "Rentang waktu akses ujian, bukan durasi pengerjaan.",
+                  "Informasi durasi dan rentang waktu di atas adalah patokan jadwal resmi ujian. Waktu pengerjaan sesungguhnya akan mulai dihitung mundur secara mandiri setelah Anda memulai mengerjakan.",
                   style: TextStyle(
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
@@ -442,7 +442,7 @@ class ExamCard extends StatelessWidget {
               context: context,
               isScrollControlled: true,
               backgroundColor: Colors.transparent,
-              builder: (_) => TokenBottomSheet(examTitle: exam.title),
+              builder: (_) => TokenBottomSheet(exam: exam),
             );
           },
           child: Text(

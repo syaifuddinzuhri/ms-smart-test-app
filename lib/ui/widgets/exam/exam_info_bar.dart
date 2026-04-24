@@ -4,12 +4,16 @@ class ExamInfoBar extends StatelessWidget {
   final int currentIndex;
   final int totalQuestions;
   final String questionType;
+  final VoidCallback onZoomIn;  // Tambahan
+  final VoidCallback onZoomOut; // Tambahan
 
   const ExamInfoBar({
     super.key,
     required this.currentIndex,
     required this.totalQuestions,
     required this.questionType,
+    required this.onZoomIn,
+    required this.onZoomOut,
   });
 
   @override
@@ -35,8 +39,8 @@ class ExamInfoBar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic, // WAJIB
+              crossAxisAlignment: CrossAxisAlignment.center,
+              textBaseline: TextBaseline.alphabetic,
               children: [
                 // --- SISI KIRI: INDIKATOR NOMOR ---
                 Row(
@@ -82,6 +86,16 @@ class ExamInfoBar extends StatelessWidget {
                         ],
                       ),
                     ),
+                  ],
+                ),
+
+                Row(
+                  children: [
+                    _zoomButton(Icons.remove, onZoomOut),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.format_size_rounded, size: 18, color: Colors.grey),
+                    const SizedBox(width: 8),
+                    _zoomButton(Icons.add, onZoomIn),
                   ],
                 ),
 
@@ -145,13 +159,27 @@ class ExamInfoBar extends StatelessWidget {
     );
   }
 
+  Widget _zoomButton(IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, size: 16, color: Colors.black87),
+      ),
+    );
+  }
+
   // Helper untuk merapikan teks tipe soal
   String _formatTypeName(String type) {
     switch (type.toLowerCase()) {
-      case 'single': return 'PILIHAN GANDA';
-      case 'multiple': return 'JAWABAN JAMAK';
-      case 'truefalse': return 'BENAR / SALAH';
-      case 'shortanswer': return 'ISIAN SINGKAT';
+      case 'single_choice': return 'PILIHAN GANDA';
+      case 'multiple_choice': return 'JAWABAN JAMAK';
+      case 'true_false': return 'BENAR / SALAH';
+      case 'short_answer': return 'ISIAN SINGKAT';
       case 'essay': return 'ESSAY / URAIAN';
       default: return type.toUpperCase();
     }

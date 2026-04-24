@@ -2,19 +2,24 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:ms_smart_test/core/main_navigator.dart';
+import 'package:ms_smart_test/data/models/exam_model.dart';
+import 'package:ms_smart_test/providers/exam_provider.dart';
 import 'package:ms_smart_test/ui/pages/home_page.dart';
 import 'package:ms_smart_test/ui/pages/violation_page.dart';
 import 'package:ms_smart_test/ui/widgets/exam/exam_app_bar.dart';
 import 'package:ms_smart_test/ui/widgets/exam/exam_bottom_navbar.dart';
 import 'package:ms_smart_test/ui/widgets/exam/exam_info_bar.dart';
+import 'package:ms_smart_test/ui/widgets/exam/exam_loading_skeleton.dart';
 import 'package:ms_smart_test/ui/widgets/exam/exam_question_renderer.dart';
 import 'package:ms_smart_test/ui/widgets/exam/exam_sheets.dart';
+import 'package:provider/provider.dart';
 import '../../data/models/question_model.dart';
 import '../../services/security_service.dart';
 import '../widgets/option_tile.dart';
 
 class ExamPage extends StatefulWidget {
-  const ExamPage({super.key});
+  final ExamModel exam;
+  const ExamPage({super.key, required this.exam});
 
   @override
   State<ExamPage> createState() => _ExamPageState();
@@ -23,70 +28,56 @@ class ExamPage extends StatefulWidget {
 class _ExamPageState extends State<ExamPage> with WidgetsBindingObserver {
   int _currentIndex = 0;
   bool _isSecureActive = false;
-  late Timer _timer;
-  int _secondsRemaining = 3600; // Contoh: 60 menit (3600 detik)
-  bool _isViolationDetected = false; // Flag untuk mencegah alert ganda
+
+  bool _isViolationDetected = false;
+  bool _isLoadingSession = true;
+  double _fontSizeMultiplier = 1.3;
+
+  Timer? _timer;
+  int _secondsRemaining = 0;
+
+  List<QuestionModel> _questions = [];
 
   final TextEditingController _textController = TextEditingController();
-
-  final List<Question> _questions = [
-    Question(
-      id: 1,
-      type: QuestionType.single,
-      text: "Apa ibukota Indonesia?",
-      options: ["Jakarta", "IKN", "Bandung", "Surabaya"],
-    ),
-    Question(
-      id: 2,
-      type: QuestionType.multiple,
-      text: "Pilih warna bendera Indonesia (Pilih 2):",
-      options: ["Merah", "Kuning", "Putih", "Biru"],
-      selectedAnswers: [],
-    ),
-    Question(
-      id: 3,
-      type: QuestionType.trueFalse,
-      text: "Matahari terbit dari sebelah barat.",
-      options: ["Benar", "Salah"],
-    ),
-    Question(
-      id: 4,
-      type: QuestionType.shortAnswer,
-      text: "Sebutkan nama presiden pertama Indonesia!",
-    ),
-    Question(
-      id: 5,
-      type: QuestionType.essay,
-      text: "Jelaskan sejarah singkat kemerdekaan Indonesia!",
-    ),
-  ];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _activateSecurity();
-    _loadTextAnswer();
-    _startTimer();
+    _loadInitialData();
   }
 
   @override
   void dispose() {
-    _timer.cancel(); // Hentikan timer saat keluar
+    _timer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _textController.dispose();
     super.dispose();
   }
 
+  void _increaseFontSize() {
+    if (_fontSizeMultiplier < 2.0) {
+      setState(() => _fontSizeMultiplier += 0.3);
+    }
+  }
+
+  void _decreaseFontSize() {
+    if (_fontSizeMultiplier > 1.0) {
+      setState(() => _fontSizeMultiplier -= 0.3);
+    }
+  }
+
   void _loadTextAnswer() {
-    _textController.text = _questions[_currentIndex].textAnswer;
+    if (_questions.isNotEmpty) {
+      _textController.text = _questions[_currentIndex].textAnswer;
+    }
   }
 
   Future<void> _activateSecurity() async {
     try {
       await SecurityService.startSecureMode();
 
-      // KUNCI PERBAIKAN: Jika user keluar halaman sebelum proses selesai, stop di sini.
       if (!mounted) return;
 
       setState(() => _isSecureActive = true);
@@ -95,7 +86,46 @@ class _ExamPageState extends State<ExamPage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _loadInitialData({bool isRefresh = false}) async {
+    try {
+      final provider = context.read<ExamProvider>();
+
+      final result = await provider.fetchExamQuestions(widget.exam.id);
+
+      await provider.fetchAndSyncAnswers(widget.exam.id);
+
+      if (!mounted) return;
+
+      if (provider.questions.isEmpty) {
+        throw "Soal tidak ditemukan atau kosong";
+      }
+
+      setState(() {
+        _questions = provider.questions;
+        _secondsRemaining = result['seconds'];
+        _isLoadingSession = false;
+      });
+
+      if (!isRefresh) {
+        _startTimer();
+      }
+
+      _loadTextAnswer();
+    } catch (e) {
+      debugPrint("Error load data: $e");
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      Navigator.of(context).pop();
+    }
+  }
+
+  Future<void> _handleRefresh() async {
+    await _loadInitialData(isRefresh: true);
+  }
+
   void _startTimer() {
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
@@ -113,7 +143,6 @@ class _ExamPageState extends State<ExamPage> with WidgetsBindingObserver {
     });
   }
 
-  // Fungsi format detik ke HH:mm:ss
   String _formatTime(int seconds) {
     int h = seconds ~/ 3600;
     int m = (seconds % 3600) ~/ 60;
@@ -122,20 +151,23 @@ class _ExamPageState extends State<ExamPage> with WidgetsBindingObserver {
   }
 
   void _autoSubmit() async {
-    // 1. Matikan keamanan segera
     await SecurityService.stopSecureMode();
+
+    // Hit API Finalize dengan is_timeout = true
+    await context.read<ExamProvider>().finalizeExam(
+      widget.exam.id,
+      isTimeout: true,
+    );
 
     if (!mounted) return;
 
-    // 2. Tampilkan Bottom Sheet Waktu Habis
     ExamSheets.showTimeOutSheet(
       context: context,
       onFinish: () {
-        // Redirect ke Dashboard (HomePage) dan hapus semua tumpukan halaman
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
-              (route) => false,
+          (route) => false,
         );
       },
     );
@@ -144,9 +176,8 @@ class _ExamPageState extends State<ExamPage> with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (!mounted || !_isSecureActive || _isViolationDetected) return;
-
-    // Deteksi jika aplikasi kehilangan fokus (minimize/notifikasi)
-    if (state == AppLifecycleState.inactive || state == AppLifecycleState.paused) {
+    if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused) {
       _handleViolation();
     }
   }
@@ -154,98 +185,240 @@ class _ExamPageState extends State<ExamPage> with WidgetsBindingObserver {
   void _handleViolation() async {
     setState(() => _isViolationDetected = true);
 
-    // 1. Matikan Kiosk Mode segera
     await SecurityService.stopSecureMode();
 
-    // 2. Arahkan ke halaman Pelanggaran (bukan dialog)
     if (mounted) {
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const ViolationPage()),
-            (route) => false, // Hapus semua riwayat halaman agar tidak bisa back
+        MaterialPageRoute(
+          builder: (context) => ViolationPage(examId: widget.exam.id),
+        ),
+        (route) => false,
       );
+    }
+  }
+
+  bool _shouldSync(QuestionModel q) {
+    // Cek apakah ada jawaban berdasarkan tipe
+    bool hasAnswer = false;
+    switch (q.type) {
+      case QuestionType.single_choice:
+      case QuestionType.true_false:
+        hasAnswer = q.selectedAnswerIndex != null;
+        break;
+      case QuestionType.multiple_choice:
+        hasAnswer = q.selectedAnswerIndices.isNotEmpty;
+        break;
+      case QuestionType.short_answer:
+      case QuestionType.essay:
+        hasAnswer = q.textAnswer.trim().isNotEmpty;
+        break;
+      default:
+        hasAnswer = false;
+    }
+
+    // Syarat Sync: Ada Jawaban ATAU Ditandai Ragu-ragu
+    return hasAnswer || q.isFlagged;
+  }
+
+  Future<void> _navigateToStep(int newIndex) async {
+    final provider = context.read<ExamProvider>();
+    final questionToSave = _questions[_currentIndex];
+
+    // 1. PINDAH HALAMAN DULU (Instant UX)
+    setState(() {
+      _currentIndex = newIndex;
+      _loadTextAnswer();
+    });
+    FocusScope.of(context).unfocus();
+
+    if (_shouldSync(questionToSave)) {
+      // 2. JALANKAN SIMPAN DI BACKGROUND
+      provider.syncAnswer(questionToSave).then((success) {
+        if (!mounted) return;
+
+        if (!success) {
+          // ALERT GAGAL: Gunakan SnackBar Merah
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: const [
+                  Icon(Icons.error_outline, color: Colors.white),
+                  SizedBox(width: 10),
+                  Text("Gagal sinkronisasi jawaban! Cek koneksi."),
+                ],
+              ),
+              backgroundColor: Colors.red.shade700,
+              duration: const Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
+          // ALERT BERHASIL: SnackBar Hijau Kecil (Opsional)
+          // Biasanya untuk "Next/Prev" sukses tidak perlu alert agar tidak berisik,
+          // tapi ini kodenya jika Anda tetap ingin muncul:
+          /*
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Jawaban tersimpan"),
+            backgroundColor: Colors.green,
+            duration: Duration(milliseconds: 500),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        */
+        }
+      });
+    }
+  }
+
+  Future<void> _handleFinalizeExam() async {
+    try {
+      final provider = context.read<ExamProvider>();
+
+      // 1. Panggil API Finalize (Selesaikan Ujian secara permanen di server)
+      bool success = await provider.finalizeExam(widget.exam.id);
+
+      if (success) {
+        // 2. HANYA JIKA SUKSES: Matikan mode keamanan
+        await SecurityService.stopSecureMode();
+
+        if (!mounted) return;
+
+        // 3. Tutup Bottom Sheet
+        Navigator.pop(context);
+
+        // 4. Kembali ke Dashboard/Home
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const HomePage()),
+          (route) => false,
+        );
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Ujian berhasil diselesaikan!")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Gagal mengirim hasil: $e")));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoadingSession || _questions.isEmpty) {
+      return const Scaffold(body: ExamLoadingSkeleton());
+    }
+
     final question = _questions[_currentIndex];
 
     return PopScope(
       canPop: false,
       child: Scaffold(
-        appBar: ExamAppBar(
-          title: "Ujian Matematika",
-          remainingTime: _formatTime(_secondsRemaining),
-          isTimeCritical: _secondsRemaining < 300,
-        ),
-        body: GestureDetector(
-          onTap: (){
-            FocusScope.of(context).unfocus();
-          },
-          child: Column(
-            children: [
-              ExamInfoBar(
-                currentIndex: _currentIndex,
-                totalQuestions: _questions.length,
-                questionType: question.type.name,
+        appBar: _isLoadingSession
+            ? null
+            : ExamAppBar(
+                title: widget.exam.title,
+                remainingTime: _formatTime(_secondsRemaining),
+                isTimeCritical: _secondsRemaining < 300,
               ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(20),
+        body: AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          child: _isLoadingSession
+              ? const ExamLoadingSkeleton()
+              : GestureDetector(
+                  onTap: () => FocusScope.of(context).unfocus(),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Text(question.text, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                      // const SizedBox(height: 25),
-                      ExamQuestionRenderer(
-                        question: question,
-                        textController: _textController,
-                        onUpdate: (fn) => setState(fn),
+                      // HEADER (TIDAK SCROLL)
+                      ExamInfoBar(
+                        currentIndex: _currentIndex,
+                        totalQuestions: _questions.length,
+                        questionType: question.type.name,
+                        onZoomIn: _increaseFontSize, // Hubungkan fungsi zoom
+                        onZoomOut: _decreaseFontSize, // Hubungkan fungsi zoom
+                      ),
+
+                      // SCROLL AREA + REFRESH
+                      Expanded(
+                        child: RefreshIndicator(
+                          onRefresh: _handleRefresh,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                ExamQuestionRenderer(
+                                  question: question,
+                                  textController: _textController,
+                                  onUpdate: (fn) => setState(fn),
+                                  fontSizeMultiplier: _fontSizeMultiplier,
+                                ),
+
+                                const SizedBox(
+                                  height: 100,
+                                ), // ruang biar ga ketutup navbar
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // NAVBAR (FIXED)
+                      ExamBottomNavbar(
+                        isFlagged: _questions[_currentIndex].isFlagged,
+                        currentIndex: _currentIndex,
+                        totalQuestions: _questions.length,
+                        onFlagChanged: (val) {
+                          setState(() {
+                            _questions[_currentIndex].isFlagged = val!;
+                          });
+
+                          // HANYA hit API jika ada jawaban atau sedang dicentang Ragu-ragu
+                          if (_shouldSync(_questions[_currentIndex])) {
+                            context.read<ExamProvider>().syncAnswer(
+                              _questions[_currentIndex],
+                            );
+                          }
+                        },
+                        onPrev: _currentIndex == 0
+                            ? null
+                            : () => _navigateToStep(_currentIndex - 1),
+                        onNext: _currentIndex == _questions.length - 1
+                            ? null
+                            : () => _navigateToStep(_currentIndex + 1),
+                        onNavTap: () => ExamSheets.showNavigation(
+                          context: context,
+                          questions: _questions,
+                          currentIndex: _currentIndex,
+                          onQuestionTap: (index) => _navigateToStep(index),
+                        ),
+                        onSubmitTap: () {
+                          final currentQ = _questions[_currentIndex];
+
+                          // Tetap sync jika memang ada isinya
+                          if (_shouldSync(currentQ)) {
+                            context.read<ExamProvider>().syncAnswer(currentQ);
+                          }
+
+                          // 2. Munculkan BottomSheet Rangkuman & Konfirmasi
+                          ExamSheets.showConfirmSubmit(
+                            context: context,
+                            questions: _questions,
+                            onConfirm: () async {
+                              // Fungsi ini dipanggil saat siswa klik "KIRIM HASIL" di Bottom Sheet
+                              await _handleFinalizeExam();
+                            },
+                          );
+                        },
                       ),
                     ],
                   ),
                 ),
-              ),
-              // GUNAKAN KOMPONEN BARU
-              ExamBottomNavbar(
-                isFlagged: question.isFlagged,
-                currentIndex: _currentIndex,
-                totalQuestions: _questions.length,
-                onFlagChanged: (v) => setState(() => question.isFlagged = v!),
-                onPrev: _currentIndex == 0 ? null : () {
-                  setState(() => _currentIndex--);
-                  _loadTextAnswer();
-                },
-                onNext: _currentIndex == _questions.length - 1 ? null : () {
-                  setState(() => _currentIndex++);
-                  _loadTextAnswer();
-                },
-                onNavTap: () => ExamSheets.showNavigation(
-                  context: context,
-                  questions: _questions,
-                  currentIndex: _currentIndex,
-                  onQuestionTap: (index) {
-                    setState(() => _currentIndex = index);
-                    _loadTextAnswer();
-                  },
-                ),
-                onSubmitTap: () => ExamSheets.showConfirmSubmit(
-                  context: context,
-                  questions: _questions,
-                  onConfirm: () async {
-                    await SecurityService.stopSecureMode();
-                    if (!mounted) return;
-
-                    Navigator.pop(context); // Tutup Sheet
-                    Navigator.pop(context); // Keluar Ujian
-
-                  },
-                ),
-              ),
-            ],
-          ),
-        )
+        ),
       ),
     );
   }
