@@ -12,6 +12,7 @@ import 'package:ms_smart_test/ui/widgets/exam/exam_info_bar.dart';
 import 'package:ms_smart_test/ui/widgets/exam/exam_loading_skeleton.dart';
 import 'package:ms_smart_test/ui/widgets/exam/exam_question_renderer.dart';
 import 'package:ms_smart_test/ui/widgets/exam/exam_sheets.dart';
+import 'package:ms_smart_test/ui/widgets/loading_overlay.dart';
 import 'package:provider/provider.dart';
 import '../../data/models/question_model.dart';
 import '../../services/security_service.dart';
@@ -273,22 +274,22 @@ class _ExamPageState extends State<ExamPage> with WidgetsBindingObserver {
   }
 
   Future<void> _handleFinalizeExam() async {
+    // Tutup BottomSheet konfirmasi dulu
+    Navigator.pop(context);
+
     try {
       final provider = context.read<ExamProvider>();
 
-      // 1. Panggil API Finalize (Selesaikan Ujian secara permanen di server)
+      // API Call (Ini akan memicu isLoading = true di Provider)
       bool success = await provider.finalizeExam(widget.exam.id);
 
       if (success) {
-        // 2. HANYA JIKA SUKSES: Matikan mode keamanan
+        // Matikan keamanan
         await SecurityService.stopSecureMode();
 
         if (!mounted) return;
 
-        // 3. Tutup Bottom Sheet
-        Navigator.pop(context);
-
-        // 4. Kembali ke Dashboard/Home
+        // Kembali ke Dashboard
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(builder: (context) => const HomePage()),
@@ -296,128 +297,152 @@ class _ExamPageState extends State<ExamPage> with WidgetsBindingObserver {
         );
 
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Ujian berhasil diselesaikan!")),
+          const SnackBar(
+            content: Text("Ujian berhasil diselesaikan!"),
+            backgroundColor: Colors.green,
+            duration: Duration(milliseconds: 500),
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Gagal mengirim hasil: $e")));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white),
+                SizedBox(width: 10),
+                Text("Gagal mengirim hasil: $e")
+              ],
+            ),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final examProvider = context.watch<ExamProvider>();
+
     if (_isLoadingSession || _questions.isEmpty) {
       return const Scaffold(body: ExamLoadingSkeleton());
     }
 
     final question = _questions[_currentIndex];
 
-    return PopScope(
-      canPop: false,
-      child: Scaffold(
-        appBar: _isLoadingSession
-            ? null
-            : ExamAppBar(
-                title: widget.exam.title,
-                remainingTime: _formatTime(_secondsRemaining),
-                isTimeCritical: _secondsRemaining < 300,
-              ),
-        body: AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: _isLoadingSession
-              ? const ExamLoadingSkeleton()
-              : GestureDetector(
-                  onTap: () => FocusScope.of(context).unfocus(),
-                  child: Column(
-                    children: [
-                      // HEADER (TIDAK SCROLL)
-                      ExamInfoBar(
-                        currentIndex: _currentIndex,
-                        totalQuestions: _questions.length,
-                        questionType: question.type.name,
-                        onZoomIn: _increaseFontSize, // Hubungkan fungsi zoom
-                        onZoomOut: _decreaseFontSize, // Hubungkan fungsi zoom
-                      ),
+    return LoadingOverlay(
+      isLoading: examProvider.isLoadingFinalized,
+      text: "Sedang mengirim hasil ujian...",
+      child: PopScope(
+        canPop: false,
+        child: Scaffold(
+          appBar: _isLoadingSession
+              ? null
+              : ExamAppBar(
+                  title: widget.exam.title,
+                  remainingTime: _formatTime(_secondsRemaining),
+                  isTimeCritical: _secondsRemaining < 300,
+                ),
+          body: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: _isLoadingSession
+                ? const ExamLoadingSkeleton()
+                : GestureDetector(
+                    onTap: () => FocusScope.of(context).unfocus(),
+                    child: Column(
+                      children: [
+                        // HEADER (TIDAK SCROLL)
+                        ExamInfoBar(
+                          currentIndex: _currentIndex,
+                          totalQuestions: _questions.length,
+                          questionType: question.type.name,
+                          onZoomIn: _increaseFontSize, // Hubungkan fungsi zoom
+                          onZoomOut: _decreaseFontSize, // Hubungkan fungsi zoom
+                        ),
 
-                      // SCROLL AREA + REFRESH
-                      Expanded(
-                        child: RefreshIndicator(
-                          onRefresh: _handleRefresh,
-                          child: SingleChildScrollView(
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                ExamQuestionRenderer(
-                                  question: question,
-                                  textController: _textController,
-                                  onUpdate: (fn) => setState(fn),
-                                  fontSizeMultiplier: _fontSizeMultiplier,
-                                ),
+                        // SCROLL AREA + REFRESH
+                        Expanded(
+                          child: RefreshIndicator(
+                            onRefresh: _handleRefresh,
+                            child: SingleChildScrollView(
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              padding: const EdgeInsets.all(20),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  ExamQuestionRenderer(
+                                    question: question,
+                                    textController: _textController,
+                                    onUpdate: (fn) => setState(fn),
+                                    fontSizeMultiplier: _fontSizeMultiplier,
+                                  ),
 
-                                const SizedBox(
-                                  height: 100,
-                                ), // ruang biar ga ketutup navbar
-                              ],
+                                  const SizedBox(
+                                    height: 100,
+                                  ), // ruang biar ga ketutup navbar
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
 
-                      // NAVBAR (FIXED)
-                      ExamBottomNavbar(
-                        isFlagged: _questions[_currentIndex].isFlagged,
-                        currentIndex: _currentIndex,
-                        totalQuestions: _questions.length,
-                        onFlagChanged: (val) {
-                          setState(() {
-                            _questions[_currentIndex].isFlagged = val!;
-                          });
-
-                          // HANYA hit API jika ada jawaban atau sedang dicentang Ragu-ragu
-                          if (_shouldSync(_questions[_currentIndex])) {
-                            context.read<ExamProvider>().syncAnswer(
-                              _questions[_currentIndex],
-                            );
-                          }
-                        },
-                        onPrev: _currentIndex == 0
-                            ? null
-                            : () => _navigateToStep(_currentIndex - 1),
-                        onNext: _currentIndex == _questions.length - 1
-                            ? null
-                            : () => _navigateToStep(_currentIndex + 1),
-                        onNavTap: () => ExamSheets.showNavigation(
-                          context: context,
-                          questions: _questions,
+                        // NAVBAR (FIXED)
+                        ExamBottomNavbar(
+                          isFlagged: _questions[_currentIndex].isFlagged,
                           currentIndex: _currentIndex,
-                          onQuestionTap: (index) => _navigateToStep(index),
-                        ),
-                        onSubmitTap: () {
-                          final currentQ = _questions[_currentIndex];
+                          totalQuestions: _questions.length,
+                          onFlagChanged: (val) {
+                            setState(() {
+                              _questions[_currentIndex].isFlagged = val!;
+                            });
 
-                          // Tetap sync jika memang ada isinya
-                          if (_shouldSync(currentQ)) {
-                            context.read<ExamProvider>().syncAnswer(currentQ);
-                          }
-
-                          // 2. Munculkan BottomSheet Rangkuman & Konfirmasi
-                          ExamSheets.showConfirmSubmit(
+                            // HANYA hit API jika ada jawaban atau sedang dicentang Ragu-ragu
+                            if (_shouldSync(_questions[_currentIndex])) {
+                              context.read<ExamProvider>().syncAnswer(
+                                _questions[_currentIndex],
+                              );
+                            }
+                          },
+                          onPrev: _currentIndex == 0
+                              ? null
+                              : () => _navigateToStep(_currentIndex - 1),
+                          onNext: _currentIndex == _questions.length - 1
+                              ? null
+                              : () => _navigateToStep(_currentIndex + 1),
+                          onNavTap: () => ExamSheets.showNavigation(
                             context: context,
                             questions: _questions,
-                            onConfirm: () async {
-                              // Fungsi ini dipanggil saat siswa klik "KIRIM HASIL" di Bottom Sheet
-                              await _handleFinalizeExam();
-                            },
-                          );
-                        },
-                      ),
-                    ],
+                            currentIndex: _currentIndex,
+                            onQuestionTap: (index) => _navigateToStep(index),
+                          ),
+                          onSubmitTap: () {
+                            final currentQ = _questions[_currentIndex];
+
+                            // Tetap sync jika memang ada isinya
+                            if (_shouldSync(currentQ)) {
+                              context.read<ExamProvider>().syncAnswer(currentQ);
+                            }
+
+                            // 2. Munculkan BottomSheet Rangkuman & Konfirmasi
+                            ExamSheets.showConfirmSubmit(
+                              context: context,
+                              questions: _questions,
+                              onConfirm: () async {
+                                // Fungsi ini dipanggil saat siswa klik "KIRIM HASIL" di Bottom Sheet
+                                await _handleFinalizeExam();
+                              },
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
-                ),
+          ),
         ),
       ),
     );

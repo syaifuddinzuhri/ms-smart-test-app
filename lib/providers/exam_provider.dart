@@ -13,6 +13,7 @@ class ExamProvider extends ChangeNotifier {
   };
 
   bool _isLoading = false;
+  bool _isLoadingFinalize = false;
   String? _error;
   String? _sessionToken;
   String? _examId;
@@ -24,6 +25,7 @@ class ExamProvider extends ChangeNotifier {
 
   List<QuestionModel> get questions => _questions;
   bool get isLoading => _isLoading;
+  bool get isLoadingFinalized => _isLoadingFinalize;
   String? get error => _error;
 
   Future<Map<String, dynamic>> fetchExamQuestions(String examId) async {
@@ -184,7 +186,7 @@ class ExamProvider extends ChangeNotifier {
 
   Future<bool> finalizeExam(String examId, {bool isTimeout = false}) async {
     if (_sessionToken == null) return false;
-    _isLoading = true;
+    _isLoadingFinalize = true;
     notifyListeners();
 
     try {
@@ -197,7 +199,7 @@ class ExamProvider extends ChangeNotifier {
     } catch (e) {
       rethrow;
     } finally {
-      _isLoading = false;
+      _isLoadingFinalize = false;
       notifyListeners();
     }
   }
